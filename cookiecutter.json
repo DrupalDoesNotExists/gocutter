@@ -1,0 +1,11 @@
+{
+  "package": null,
+  "slug": "{{ cookiecutter.package.lower()|split(\"/\")[-1] }}",
+  "full_name": null,
+  "license": [
+    "MIT",
+    "GPLv3",
+    "MPLv2",
+    "Custom"
+  ]
+}
