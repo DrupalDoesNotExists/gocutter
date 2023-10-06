@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/EduUnID/jwtmarshal"
+	"crypto/rsa"
 	"github.com/fvbock/endless"
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
@@ -19,7 +19,7 @@ var (
 	JwtKeyFile  = os.Getenv("SERVICE_JWT_KEY")
 )
 
-func newRouter(jwtCtx *jwtmarshal.JWTContext, db *sqlx.DB) *gin.Engine {
+func newRouter(jwtKey *rsa.PrivateKey, db *sqlx.DB) *gin.Engine {
 	// create a new gin router
 	r := gin.New()
 
@@ -40,15 +40,15 @@ func main() {
 	zap.ReplaceGlobals(l)
 
 	// create a jwt context
-	jwtCtx := &jwtmarshal.JWTContext{
-		SigningMethod: jwt.SigningMethodRS512,
-		ExpireAfter:   time.Minute * 30,
+	l.Debug("reading jwt key")
+	jwtKeyContent, err := os.ReadFile(JwtKeyFile)
+	if err != nil {
+		l.Fatal("error reading jwt key", zap.Error(err))
 	}
 
-	// read jwt keys
-	l.Debug("reading jwt key pair", zap.String("path", JwtKeyFile))
-	if err := jwtCtx.ReadKeyFiles(JwtKeyFile, JwtKeyFile+".pub"); err != nil {
-		l.Fatal("error reading jwt keys", zap.Error(err))
+	jwtPubKey, err := jwt.ParseRSAPrivateKeyFromPEM(jwtKeyContent)
+	if err != nil {
+		l.Fatal("error parsing rsa pem key", zap.Error(err))
 	}
 
 	// connect to a database
@@ -59,7 +59,7 @@ func main() {
 	}
 
 	// http server
-	r := newRouter(jwtCtx, db)
+	r := newRouter(jwtPubKey, db)
 	l.Debug("listening http", zap.String("addr", HttpAddr))
 	if err := endless.ListenAndServe(HttpAddr, r); err != nil {
 		l.Fatal("http server error", zap.Error(err))
